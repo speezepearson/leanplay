@@ -31,7 +31,7 @@ theorem split_shortens_right : (x y : Nat) -> (rest : List Nat) -> (split (x::y:
     simp
 
 
-theorem eq_append_split (xs : List Nat) : xs = let (a,b) := split xs; a++b := by
+theorem eq_append_split (xs : List Nat) : xs = List.append (split xs).fst (split xs).snd := by
   simp [split]
 
 def merge_sorted : (acc xs ys : List Nat) -> List Nat
@@ -52,7 +52,7 @@ theorem pairwise_cons_repeat (x : Nat) (xs : List Nat) (h : (x::xs).Pairwise LE.
     . intro h2; apply h.left; exact h2
   . exact h
 
-theorem merge_sorted_sorted_perm :
+theorem merge_sorted_perm :
   ∀ (total acc xs ys: List Nat),
   total.Perm (acc ++ xs ++ ys) ->
   total.Perm (merge_sorted acc xs ys)
@@ -260,5 +260,25 @@ termination_by xs => xs.length
 decreasing_by
   apply split_shortens_left
   apply split_shortens_right
+
+theorem mergesort_perm : ∀ (xs : List Nat), (mergesort xs).Perm xs := by
+  intro xs
+  unfold mergesort
+  split; all_goals simp
+  rename_i x y rest
+  apply List.Perm.symm
+  apply merge_sorted_perm
+  rw [List.nil_append]
+  have hl : (mergesort (split (x :: y :: rest)).1).Perm (split (x :: y :: rest)).1 := by apply mergesort_perm
+  have hr : (mergesort (split (x :: y :: rest)).2).Perm (split (x :: y :: rest)).2 := by apply mergesort_perm
+  have speq : (x :: y :: rest) = (split (x :: y :: rest)).1 ++ (split (x :: y :: rest)).2 := by apply eq_append_split
+  conv => lhs; rw [speq]
+  apply List.Perm.append;
+  all_goals apply List.Perm.symm
+  all_goals apply mergesort_perm
+termination_by xs => xs.length
+decreasing_by
+  rename_i h; rw [h]; apply split_shortens_left
+  rename_i h; rw [h]; apply split_shortens_right
 
 #eval mergesort [5, 2, 0, 1, 1, 7, 7, 1, 2, 0, 1, 9, 7, 8, 4, 1, 8, 0, 6, 3, 3, 3, 9, 5, 7, 3, 8, 1, 8, 1, 8, 3, 5, 5, 1, 1, 9, 7, 8, 4, 4, 6, 5, 2, 1, 0, 2, 5, 0, 1, 0, 3, 8, 2, 9, 7, 7, 6, 2, 5, 0, 0, 9, 4, 1, 0, 2, 2, 6, 7, 2, 3, 7, 6, 7, 3, 7, 4, 5, 1, 8, 3, 4, 4, 1, 2, 6, 6, 1, 4, 8, 2, 5, 6, 3, 6, 0, 4, 7, 7]
