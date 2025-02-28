@@ -1,4 +1,3 @@
--- open Mathlib
 import Mathlib.Tactic.Ring
 
 -- Merge two sorted lists into a single sorted list
@@ -9,18 +8,22 @@ def merge_sorted : (acc xs ys : List Nat) -> List Nat
   if x <= y then merge_sorted (acc ++ [x]) xs (y::ys )
   else merge_sorted (acc ++ [y]) (x::xs) (ys)
 
-lemma pairwise_cons_repeat (x : Nat) (xs : List Nat) (h : (x::xs).Pairwise LE.le) : (x::x::xs).Pairwise LE.le := by
+-- if [x, ...] is sorted then [x, x, ...] is too
+lemma pairwise_cons_repeat :
+  (x : Nat) ->
+  (xs : List Nat) ->
+  (h : (x::xs).Pairwise LE.le) ->
+  (x::x::xs).Pairwise LE.le
+  := by
+  intro x xs xxs_sorted
+  have : ∀ x' ∈ xs, x ≤ x' := by rw [List.pairwise_cons] at xxs_sorted; exact xxs_sorted.left
   rw [List.pairwise_cons]
-  apply And.intro
-  . intro a a_in_xxs
-    rw [List.pairwise_cons] at h
-    rw [List.mem_cons] at a_in_xxs
-    apply Or.elim a_in_xxs
-    . intro a_eq_x; simp [a_eq_x]
-    . intro h2; apply h.left; exact h2
-  . exact h
+  simp [xxs_sorted]
+  exact this
 
+-- `merge_sorted` returns a permutation of its combined inputs
 theorem merge_sorted_perm :
+  -- Upon reflection, a better phrasing would be: `(acc ++ xs ++ ys).Perm (merge_sorted acc xs ys)`
   ∀ (total acc xs ys: List Nat),
   total.Perm (acc ++ xs ++ ys) ->
   total.Perm (merge_sorted acc xs ys)
@@ -58,6 +61,7 @@ theorem merge_sorted_perm :
   intro total acc xs ys hperm
   exact aux total acc xs ys hperm
 
+-- If (acc, xs, ys) are ready to get smushed by mergesort, then the result is sorted
 theorem merge_sorted_sorted : ∀ (xs ys acc: List Nat),
     (acc ++ xs).Pairwise LE.le ->
     (acc ++ ys).Pairwise LE.le ->
