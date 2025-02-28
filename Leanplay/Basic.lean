@@ -6,7 +6,8 @@ def merge_sorted : (acc xs ys : List Nat) -> List Nat
 | acc, xs, [] => acc ++ xs
 | acc, x::xs, y::ys =>
   if x <= y then merge_sorted (acc ++ [x]) xs (y::ys )
-  else merge_sorted (acc ++ [y]) (x::xs) (ys)
+  else merge_sorted (acc ++ [y]) ys (x::xs)
+termination_by _ xs ys => xs.length + ys.length
 
 -- if [x, ...] is sorted then [x, x, ...] is too
 lemma pairwise_cons_repeat :
@@ -29,15 +30,13 @@ theorem merge_sorted_perm {acc xs ys: List Nat} : (acc ++ xs ++ ys).Perm (merge_
   . rw [List.append_cons, ← List.append_assoc]
     apply merge_sorted_perm
   . rename_i x xs y ys _
-    have hperm : (acc ++ x :: (xs ++ y :: ys)).Perm ((acc ++ [y]) ++ (x :: xs) ++ ys) := by
-      -- God, there's gotta be a more elegant way to prove this.
-      rw [List.perm_iff_count]
-      intro q
-      simp [List.count_append, List.count_cons]
-      repeat split
-      all_goals ring_nf
-    apply List.Perm.trans hperm
-    apply merge_sorted_perm
+    apply List.Perm.trans _ merge_sorted_perm
+    -- God, there's gotta be a more elegant way to prove this.
+    rw [List.perm_iff_count]
+    intro q
+    simp [List.count_append, List.count_cons]
+    repeat split
+    all_goals ring_nf
 termination_by sizeOf xs + sizeOf ys
 
 -- If (acc, xs, ys) are ready to get smushed by mergesort, then the result is sorted
@@ -52,30 +51,33 @@ theorem merge_sorted_sorted :
   unfold merge_sorted
   split; any_goals assumption
 
-  rename_i x xs y ys
-  have acc_sorted : List.Pairwise LE.le acc := by rw [List.pairwise_append] at axxs_sorted; simp [axxs_sorted]
-  have xxs_sorted : (x :: xs).Pairwise LE.le := by rw [List.pairwise_append] at axxs_sorted; simp [axxs_sorted]
-  have yys_sorted : (y :: ys).Pairwise LE.le := by rw [List.pairwise_append] at ayys_sorted; simp [ayys_sorted]
-  have acc_all_le_xs : ∀ (a : Nat), a ∈ acc → ∀ (b : Nat), b ∈ x::xs → a ≤ b := by rw [List.pairwise_append] at axxs_sorted; exact axxs_sorted.right.right
-  have acc_all_le_ys : ∀ (a : Nat), a ∈ acc → ∀ (b : Nat), b ∈ y::ys → a ≤ b := by rw [List.pairwise_append] at ayys_sorted; exact ayys_sorted.right.right
-
   split
-  . rename_i x_le_y
-    have xyys_sorted : List.Pairwise LE.le (x :: y :: ys) := by
-      apply List.Pairwise.cons; any_goals exact yys_sorted
-      -- This is so obvious! There must be a simpler proof.
-      intro a a_in_yys
-      calc
-        x ≤ y := by exact x_le_y
-        y ≤ a := by
-          apply pairwise_cons_repeat at yys_sorted
-          rw [List.pairwise_cons] at yys_sorted
-          apply yys_sorted.left
-          exact a_in_yys
+  on_goal 1 => rename_i x xs y ys x_le_y
+  on_goal 2 => rename_i y ys x xs nx_le_y; rename' axxs_sorted=>ayys_sorted, ayys_sorted=>axxs_sorted; have x_le_y : x ≤ y := Nat.le_of_not_le nx_le_y
 
-    apply merge_sorted_sorted
-    . simp [axxs_sorted]
-    . rw [← List.append_cons]
+  -- I would like to refactor this into a lemma which we simply apply to each of the two identical subgoals,
+  -- but I can't figure out how to do that without making the termination condition really annoying to prove.
+  all_goals (
+      apply merge_sorted_sorted; all_goals simp [axxs_sorted]
+
+      have acc_sorted : List.Pairwise LE.le acc := by rw [List.pairwise_append] at axxs_sorted; simp [axxs_sorted]
+      have xxs_sorted : (x :: xs).Pairwise LE.le := by rw [List.pairwise_append] at axxs_sorted; simp [axxs_sorted]
+      have yys_sorted : (y :: ys).Pairwise LE.le := by rw [List.pairwise_append] at ayys_sorted; simp [ayys_sorted]
+      have acc_all_le_xs : ∀ (a : Nat), a ∈ acc → ∀ (b : Nat), b ∈ x::xs → a ≤ b := by rw [List.pairwise_append] at axxs_sorted; exact axxs_sorted.right.right
+      have acc_all_le_ys : ∀ (a : Nat), a ∈ acc → ∀ (b : Nat), b ∈ y::ys → a ≤ b := by rw [List.pairwise_append] at ayys_sorted; exact ayys_sorted.right.right
+
+      have xyys_sorted : List.Pairwise LE.le (x :: y :: ys) := by
+        apply List.Pairwise.cons; any_goals exact yys_sorted
+        -- This is so obvious! There must be a simpler proof.
+        intro a a_in_yys
+        calc
+          x ≤ y := by exact x_le_y
+          y ≤ a := by
+            apply pairwise_cons_repeat at yys_sorted
+            rw [List.pairwise_cons] at yys_sorted
+            apply yys_sorted.left
+            exact a_in_yys
+
       rw [List.pairwise_append]
       apply And.intro acc_sorted
       apply And.intro xyys_sorted
@@ -85,47 +87,9 @@ theorem merge_sorted_sorted :
       . apply acc_all_le_ys; exact a_in_acc
         rw [List.mem_cons] at b_in_xyys
         apply Or.resolve_left b_in_xyys h
+  )
 
-  . rename_i nx_le_y
-    have y_le_x : y ≤ x := by apply Nat.le_of_not_le; exact nx_le_y
-    have yxxs_sorted : List.Pairwise LE.le (y :: x :: xs) := by
-      apply List.Pairwise.cons; any_goals exact xxs_sorted
-      -- This is so obvious! There must be a simpler proof.
-      intro a a_in_xxs
-      calc
-        y ≤ x := by exact y_le_x
-        x ≤ a := by
-          apply pairwise_cons_repeat at xxs_sorted
-          rw [List.pairwise_cons] at xxs_sorted
-          apply xxs_sorted.left
-          exact a_in_xxs
-
-    apply merge_sorted_sorted
-    . rw [← List.append_cons]
-      rw [List.pairwise_append]
-      apply And.intro acc_sorted
-      apply And.intro yxxs_sorted
-      intro a a_in_acc b b_in_yxxs
-
-      calc
-        a ≤ y := by simp [acc_all_le_ys, a_in_acc]
-        y ≤ b := by
-          by_cases h: y=b
-          . simp [h]
-          rw [List.mem_cons] at b_in_yxxs
-          have b_in_xxs : b ∈ x :: xs := by
-            apply Or.elim b_in_yxxs
-            . intro h'; apply absurd (Eq.symm h') h
-            . simp
-          have y_le_xxs : ∀ c : Nat, c ∈ x :: xs → y ≤ c := by
-            apply And.left
-            rw [← List.pairwise_cons]
-            exact yxxs_sorted
-          apply y_le_xxs
-          exact b_in_xxs
-    . simp; exact ayys_sorted
 termination_by xs ys => xs.length + ys.length
-
 
 
 def mergesort : (xs : List Nat) -> List Nat
