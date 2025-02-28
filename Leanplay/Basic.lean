@@ -23,25 +23,22 @@ lemma pairwise_cons_repeat :
 
 -- `merge_sorted` returns a permutation of its combined inputs
 theorem merge_sorted_perm {acc xs ys: List Nat} : (acc ++ xs ++ ys).Perm (merge_sorted acc xs ys) := by
-  let rec aux {acc xs ys: List Nat} : (acc ++ xs ++ ys).Perm (merge_sorted acc xs ys) := by
-    unfold merge_sorted
-    split; all_goals simp
-    split
-    . rw [List.append_cons, ← List.append_assoc]
-      apply aux
-    . rename_i x xs y ys _
-      have hperm : (acc ++ x :: (xs ++ y :: ys)).Perm ((acc ++ [y]) ++ (x :: xs) ++ ys) := by
-        -- God, there's gotta be a more elegant way to prove this.
-        rw [List.perm_iff_count]
-        intro q
-        simp [List.count_append, List.count_cons]
-        repeat split
-        all_goals ring_nf
-      apply List.Perm.trans hperm
-      apply aux
-  termination_by xs.length+ys.length
-
-  exact aux
+  unfold merge_sorted
+  split; all_goals simp
+  split
+  . rw [List.append_cons, ← List.append_assoc]
+    apply merge_sorted_perm
+  . rename_i x xs y ys _
+    have hperm : (acc ++ x :: (xs ++ y :: ys)).Perm ((acc ++ [y]) ++ (x :: xs) ++ ys) := by
+      -- God, there's gotta be a more elegant way to prove this.
+      rw [List.perm_iff_count]
+      intro q
+      simp [List.count_append, List.count_cons]
+      repeat split
+      all_goals ring_nf
+    apply List.Perm.trans hperm
+    apply merge_sorted_perm
+termination_by sizeOf xs + sizeOf ys
 
 -- If (acc, xs, ys) are ready to get smushed by mergesort, then the result is sorted
 theorem merge_sorted_sorted : ∀ (xs ys acc: List Nat),
