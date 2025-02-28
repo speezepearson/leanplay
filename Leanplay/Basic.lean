@@ -1,16 +1,5 @@
 -- open Mathlib
 import Mathlib.Tactic.Ring
-def hello := "world"
-
-def myMin (a : Nat) (b : Nat) := if a < b then a else b
-
-theorem test (p q : Prop) (hp : p) (hq : q) : p ∧ q ∧ p := by
-  apply And.intro
-  exact hp
-  apply And.intro
-  exact hq
-  exact hp
-
 def split (xs : List Nat) : List Nat × List Nat := (xs.take (xs.length.div 2), xs.drop (xs.length.div 2))
 theorem split_shortens_left : (x y : Nat) -> (rest : List Nat) -> (split (x::y::rest)).fst.length < (x::y::rest).length := by
   intro x y rest
@@ -34,6 +23,7 @@ theorem split_shortens_right : (x y : Nat) -> (rest : List Nat) -> (split (x::y:
 theorem eq_append_split (xs : List Nat) : xs = List.append (split xs).fst (split xs).snd := by
   simp [split]
 
+-- Merge two sorted lists into a single sorted list
 def merge_sorted : (acc xs ys : List Nat) -> List Nat
 | acc, [], ys => acc ++ ys
 | acc, xs, [] => acc ++ xs
