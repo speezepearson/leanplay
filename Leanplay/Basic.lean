@@ -22,44 +22,26 @@ lemma pairwise_cons_repeat :
   exact this
 
 -- `merge_sorted` returns a permutation of its combined inputs
-theorem merge_sorted_perm :
-  -- Upon reflection, a better phrasing would be: `(acc ++ xs ++ ys).Perm (merge_sorted acc xs ys)`
-  ∀ (total acc xs ys: List Nat),
-  total.Perm (acc ++ xs ++ ys) ->
-  total.Perm (merge_sorted acc xs ys)
-  := by
-  let rec aux :
-    (total acc xs ys: List Nat) ->
-    total.Perm (acc ++ xs ++ ys) ->
-    total.Perm (merge_sorted acc xs ys)
-    := by
-    intro total acc xs ys hperm
+theorem merge_sorted_perm {acc xs ys: List Nat} : (acc ++ xs ++ ys).Perm (merge_sorted acc xs ys) := by
+  let rec aux {acc xs ys: List Nat} : (acc ++ xs ++ ys).Perm (merge_sorted acc xs ys) := by
     unfold merge_sorted
+    split; all_goals simp
     split
-    any_goals (simp at hperm; simp [hperm])
-    split
-    all_goals (
-      have : acc.length < total.length := by
-        apply List.Perm.length_eq at hperm;
-        simp [hperm]
+    . rw [List.append_cons, ← List.append_assoc]
       apply aux
+    . rename_i x xs y ys _
+      have hperm : (acc ++ x :: (xs ++ y :: ys)).Perm ((acc ++ [y]) ++ (x :: xs) ++ ys) := by
+        -- God, there's gotta be a more elegant way to prove this.
+        rw [List.perm_iff_count]
+        intro q
+        simp [List.count_append, List.count_cons]
+        repeat split
+        all_goals ring_nf
       apply List.Perm.trans hperm
-      simp
-    )
-    apply List.Perm.append_left
+      apply aux
+  termination_by xs.length+ys.length
 
-    -- At this point, we've nailed it, we just gotta prove...
-    --   ⊢ (x✝ :: (xs✝ ++ y✝ :: ys✝)).Perm (y✝ :: x✝ :: (xs✝ ++ ys✝))
-    -- God, there's gotta be a more elegant way to prove this.
-    rw [List.perm_iff_count]
-    intro q
-    simp [List.count_append, List.count_cons]
-    repeat split
-    all_goals ring_nf
-  termination_by total.length - acc.length
-
-  intro total acc xs ys hperm
-  exact aux total acc xs ys hperm
+  exact aux
 
 -- If (acc, xs, ys) are ready to get smushed by mergesort, then the result is sorted
 theorem merge_sorted_sorted : ∀ (xs ys acc: List Nat),
@@ -191,20 +173,15 @@ termination_by xs => xs.length
 decreasing_by
   all_goals simp [Nat.div_lt_self]
 
-theorem mergesort_perm : ∀ (xs : List Nat), (mergesort xs).Perm xs := by
+theorem mergesort_perm : ∀ (xs : List Nat), xs.Perm (mergesort xs) := by
   intro
   unfold mergesort
   split; all_goals simp
   rename_i x y rest
-  apply List.Perm.symm
-  apply merge_sorted_perm
-  rw [List.nil_append]
-  have hl : (mergesort ((x :: y :: rest).take ((x :: y :: rest).length/2))).Perm ((x :: y :: rest).take ((x :: y :: rest).length/2)) := by apply mergesort_perm
-  have hr : (mergesort ((x :: y :: rest).drop ((x :: y :: rest).length/2))).Perm ((x :: y :: rest).drop ((x :: y :: rest).length/2)) := by apply mergesort_perm
-  have speq : (x :: y :: rest) = ((x :: y :: rest).take ((x :: y :: rest).length/2) ++ (x :: y :: rest).drop ((x :: y :: rest).length/2)) := by simp [List.take_drop]
-  conv => lhs; rw [speq]
-  apply List.Perm.append;
-  all_goals (apply List.Perm.symm; apply mergesort_perm)
+  apply List.Perm.trans _ merge_sorted_perm; simp
+  apply List.Perm.trans _ (List.Perm.append (mergesort_perm _) (mergesort_perm _))
+  apply List.Perm.trans _ (by rw [List.take_append_drop])
+  simp
 termination_by xs => xs.length
 decreasing_by
   all_goals (
