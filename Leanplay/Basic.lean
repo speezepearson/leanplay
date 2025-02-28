@@ -55,10 +55,7 @@ theorem merge_sorted_sorted : ∀ (xs ys acc: List Nat),
   | cons x xs ihx =>
       intro ys
       induction ys with
-      | nil =>
-          simp [merge_sorted]
-          intro _ axxs_sorted _
-          exact axxs_sorted
+      | nil => simp [merge_sorted]; tauto
       | cons y ys ihy =>
           intro acc axxs_sorted ayys_sorted
           have acc_sorted : List.Pairwise LE.le acc := by rw [List.pairwise_append] at axxs_sorted; simp [axxs_sorted]
