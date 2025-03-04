@@ -1,7 +1,10 @@
 import Mathlib.Tactic.Ring
 
+universe u
+variable {α : Type u} [LinearOrder α]
+
 -- Merge two sorted lists into a single sorted list
-def merge_sorted : (acc xs ys : List Nat) -> List Nat
+def merge_sorted : (acc xs ys : List α) -> List α
 | acc, [], ys => acc ++ ys
 | acc, xs, [] => acc ++ xs
 | acc, x::xs, y::ys =>
@@ -11,8 +14,8 @@ termination_by _ xs ys => xs.length + ys.length
 
 -- if [x, ...] is sorted then [x, x, ...] is too
 lemma pairwise_cons_repeat :
-  {x : Nat} ->
-  {xs : List Nat} ->
+  {x : α} ->
+  {xs : List α} ->
   (h : (x::xs).Pairwise LE.le) ->
   (x::x::xs).Pairwise LE.le
   := by
@@ -23,7 +26,7 @@ lemma pairwise_cons_repeat :
   exact this
 
 -- `merge_sorted` returns a permutation of its combined inputs
-theorem merge_sorted_perm {acc xs ys: List Nat} : (acc ++ xs ++ ys).Perm (merge_sorted acc xs ys) := by
+theorem merge_sorted_perm {acc xs ys: List α} : (acc ++ xs ++ ys).Perm (merge_sorted acc xs ys) := by
   unfold merge_sorted
   split; all_goals simp
   split
@@ -41,7 +44,7 @@ termination_by sizeOf xs + sizeOf ys
 
 -- If (acc, xs, ys) are ready to get smushed by mergesort, then the result is sorted
 theorem merge_sorted_sorted :
-    {xs ys acc: List Nat} ->
+    {xs ys acc: List α} ->
     (acc ++ xs).Pairwise LE.le ->
     (acc ++ ys).Pairwise LE.le ->
     (merge_sorted acc xs ys).Pairwise LE.le
@@ -49,11 +52,12 @@ theorem merge_sorted_sorted :
   intro xs ys acc axxs_sorted ayys_sorted
 
   unfold merge_sorted
+  -- crush the base cases
   split; any_goals assumption
 
   split
   on_goal 1 => rename_i x xs y ys x_le_y
-  on_goal 2 => rename_i y ys x xs nx_le_y; rename' axxs_sorted=>ayys_sorted, ayys_sorted=>axxs_sorted; have x_le_y : x ≤ y := Nat.le_of_not_le nx_le_y
+  on_goal 2 => rename_i y ys x xs nx_le_y; rename' axxs_sorted=>ayys_sorted, ayys_sorted=>axxs_sorted; have x_le_y : x ≤ y := le_of_not_le nx_le_y
 
   -- I would like to refactor this into a lemma which we simply apply to each of the two identical subgoals,
   -- but I can't figure out how to do that without making the termination condition really annoying to prove.
@@ -63,8 +67,8 @@ theorem merge_sorted_sorted :
       have acc_sorted : List.Pairwise LE.le acc := by rw [List.pairwise_append] at axxs_sorted; simp [axxs_sorted]
       have xxs_sorted : (x :: xs).Pairwise LE.le := by rw [List.pairwise_append] at axxs_sorted; simp [axxs_sorted]
       have yys_sorted : (y :: ys).Pairwise LE.le := by rw [List.pairwise_append] at ayys_sorted; simp [ayys_sorted]
-      have acc_all_le_xs : ∀ (a : Nat), a ∈ acc → ∀ (b : Nat), b ∈ x::xs → a ≤ b := by rw [List.pairwise_append] at axxs_sorted; exact axxs_sorted.right.right
-      have acc_all_le_ys : ∀ (a : Nat), a ∈ acc → ∀ (b : Nat), b ∈ y::ys → a ≤ b := by rw [List.pairwise_append] at ayys_sorted; exact ayys_sorted.right.right
+      have acc_all_le_xs : ∀ (a : α), a ∈ acc → ∀ (b : α), b ∈ x::xs → a ≤ b := by rw [List.pairwise_append] at axxs_sorted; exact axxs_sorted.right.right
+      have acc_all_le_ys : ∀ (a : α), a ∈ acc → ∀ (b : α), b ∈ y::ys → a ≤ b := by rw [List.pairwise_append] at ayys_sorted; exact ayys_sorted.right.right
 
       have xyys_sorted : List.Pairwise LE.le (x :: y :: ys) := by
         apply List.Pairwise.cons; any_goals exact yys_sorted
@@ -92,7 +96,7 @@ theorem merge_sorted_sorted :
 termination_by xs ys => xs.length + ys.length
 
 
-def mergesort : (xs : List Nat) -> List Nat
+def mergesort : (xs : List α) -> List α
 | [] => []
 | [x] => [x]
 | xs@(x::y::rest) =>
@@ -107,7 +111,7 @@ decreasing_by
     simp [xs_eq_xyrest, Nat.div_lt_self]
   )
 
-theorem mergesort_sorted : ∀ (xs : List Nat), (mergesort xs).Pairwise LE.le
+theorem mergesort_sorted : ∀ (xs : List α), (mergesort xs).Pairwise LE.le
 | [] => by simp [mergesort]
 | [x] => by simp [mergesort]
 | x::y::rest => by
@@ -118,8 +122,8 @@ termination_by xs => xs.length
 decreasing_by
   all_goals simp [Nat.div_lt_self]
 
-theorem mergesort_perm : ∀ (xs : List Nat), xs.Perm (mergesort xs) := by
-  intro
+theorem mergesort_perm : ∀ (xs : List α), xs.Perm (mergesort xs) := by
+  intro xs
   unfold mergesort
   split; all_goals simp
   rename_i x y rest
@@ -134,4 +138,4 @@ decreasing_by
     simp [hxs, Nat.div_lt_self]
   )
 
-#eval mergesort [5, 2, 0, 1, 1, 7, 7, 1, 2, 0, 1, 9, 7, 8, 4, 1, 8, 0, 6, 3, 3, 3, 9, 5, 7, 3, 8, 1, 8, 1, 8, 3, 5, 5, 1, 1, 9, 7, 8, 4, 4, 6, 5, 2, 1, 0, 2, 5, 0, 1, 0, 3, 8, 2, 9, 7, 7, 6, 2, 5, 0, 0, 9, 4, 1, 0, 2, 2, 6, 7, 2, 3, 7, 6, 7, 3, 7, 4, 5, 1, 8, 3, 4, 4, 1, 2, 6, 6, 1, 4, 8, 2, 5, 6, 3, 6, 0, 4, 7, 7]
+#eval mergesort [5, 2, 0, 1, 1, 7, 7, 1, 2, 0, 1]
